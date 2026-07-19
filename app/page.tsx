@@ -6,7 +6,7 @@ type WritingMode = "academic" | "clinical";
 type Strength = "light" | "moderate" | "strong";
 type ModelState = "idle" | "loading" | "ready" | "working" | "error";
 
-const MODEL_ID = "qwen3:4b";
+const MODEL_ID = "qwen2.5:1.5b";
 const OLLAMA_URL = "http://127.0.0.1:11434";
 const SAMPLE_DRAFT = `During the hospice visit, the nurse assessed the patient’s comfort and explained each action before beginning care. The caregiver expressed concern about the patient becoming sleepy after receiving morphine. The nurse listened to the concern, reviewed the medication instructions, and used teach-back to confirm understanding. In my future practice, I will assess the caregiver’s specific concerns before providing clear medication education.`;
 const CLINICAL_TERMS = ["morphine", "teach-back", "hospice", "patient", "caregiver"];
@@ -142,11 +142,11 @@ export default function Home() {
     const response = await fetch(`${OLLAMA_URL}/api/tags`, { signal: AbortSignal.timeout(8000) });
     if (!response.ok) throw new Error("ClearDraft could not connect to Ollama.");
     const data = await response.json() as { models?: Array<{ name?: string; model?: string }> };
-    const available = data.models?.some((item) => (item.name || item.model || "").startsWith("qwen3:4b"));
-    if (!available) throw new Error("Ollama is running, but qwen3:4b is not installed.");
+    const available = data.models?.some((item) => (item.name || item.model || "").startsWith("qwen2.5:1.5b"));
+    if (!available) throw new Error("Ollama is running, but qwen2.5:1.5b is not installed.");
     setModelState("ready");
     setProgress(100);
-    setStatusMessage("Ollama connected · Qwen 3 4B ready");
+    setStatusMessage("Ollama connected · Fast Qwen 2.5 ready");
   }
 
   async function requestOllama(maskedDraft: string, retry = false) {
@@ -160,15 +160,15 @@ export default function Home() {
         model: MODEL_ID,
         messages: [
           { role: "system", content: "OUTPUT RULE: Return only the revised draft. Never show analysis, reasoning, planning, notes, headings, or explanations.\n\n" + buildSystemPrompt(mode, strength) + retryInstruction },
-          { role: "user", content: `/no_think\n\nRewrite the draft below. Output only the revised draft:\n\n${maskedDraft}` },
+          { role: "user", content: `Rewrite the draft below. Output only the revised draft:\n\n${maskedDraft}` },
         ],
         stream: false,
-        think: false,
+        keep_alive: "30m",
         options: {
           temperature: retry ? 0.2 : strength === "light" ? 0.2 : strength === "moderate" ? 0.4 : 0.55,
           top_p: 0.9,
           repeat_penalty: 1.08,
-          num_predict: Math.min(3000, Math.max(700, Math.ceil(draftWords * 2.2))),
+          num_predict: Math.min(1600, Math.max(260, Math.ceil(draftWords * 1.6))),
         },
       }),
     });
@@ -201,7 +201,7 @@ export default function Home() {
       setRevision(restored);
       setWarning(missing.length ? `Review needed: the model may have changed ${missing.length} protected item${missing.length === 1 ? "" : "s"}. Compare the highlighted revision before using it.` : "Protection check passed. Review the revision for meaning before submitting it.");
       setModelState("ready");
-      setStatusMessage("Ollama connected · Qwen 3 4B ready");
+      setStatusMessage("Ollama connected · Fast Qwen 2.5 ready");
     } catch (error) {
       setModelState("error");
       setStatusMessage("Ollama connection unavailable");
@@ -240,7 +240,7 @@ export default function Home() {
 
       <section className="workspace" aria-label="Writing workspace">
         <div className={`model-strip ${modelState}`} role="status" aria-live="polite"><span className="status-dot" aria-hidden="true" /><span>{statusMessage}</span>
-          {modelState === "idle" && <span className="model-note">Uses Qwen 3 4B through the Ollama app on this computer.</span>}
+          {modelState === "idle" && <span className="model-note">Uses fast Qwen 2.5 through the Ollama app on this computer.</span>}
           {modelState === "loading" && <div className="progress-track" aria-label={`Model download ${progress}%`}><span style={{ width: `${progress}%` }} /></div>}
         </div>
 
