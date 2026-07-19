@@ -1,13 +1,13 @@
 "use client";
 
-import { FormEvent, KeyboardEvent, useMemo, useState } from "react";
+import { FormEvent, KeyboardEvent, useMemo, useRef, useState } from "react";
 
 type WritingMode = "academic" | "clinical";
 type Strength = "light" | "moderate" | "strong";
 type ModelState = "idle" | "loading" | "ready" | "working" | "error";
 
 const MODEL_ID = "qwen3:4b";
-const OLLAMA_URL = "http://127.0.0.1:11434";
+const OLLAMA_URLS = ["http://localhost:11434", "http://127.0.0.1:11434"];
 const SAMPLE_DRAFT = `During the hospice visit, the nurse assessed the patient’s comfort and explained each action before beginning care. The caregiver expressed concern about the patient becoming sleepy after receiving morphine. The nurse listened to the concern, reviewed the medication instructions, and used teach-back to confirm understanding. In my future practice, I will assess the caregiver’s specific concerns before providing clear medication education.`;
 const CLINICAL_TERMS = ["morphine", "teach-back", "hospice", "patient", "caregiver"];
 
@@ -114,6 +114,7 @@ export default function Home() {
   const [statusMessage, setStatusMessage] = useState("Ollama has not been checked");
   const [warning, setWarning] = useState("");
   const [copied, setCopied] = useState(false);
+  const ollamaUrl = useRef(OLLAMA_URLS[0]);
   const draftWords = useMemo(() => wordCount(draft), [draft]);
   const revisionWords = useMemo(() => wordCount(revision), [revision]);
 
@@ -139,9 +140,20 @@ export default function Home() {
   async function ensureOllama() {
     setModelState("loading");
     setStatusMessage("Connecting to Ollama on this computer");
-    const response = await fetch(`${OLLAMA_URL}/api/tags`, { signal: AbortSignal.timeout(8000) });
-    if (!response.ok) throw new Error("ClearDraft could not connect to Ollama.");
-    const data = await response.json() as { models?: Array<{ name?: string; model?: string }> };
+    let data: { models?: Array<{ name?: string; model?: string }> } | null = null;
+    let lastError: unknown = null;
+    for (const url of OLLAMA_URLS) {
+      try {
+        const response = await fetch(`${url}/api/tags`, { signal: AbortSignal.timeout(5000), cache: "no-store" });
+        if (!response.ok) throw new Error(`Ollama returned ${response.status}`);
+        data = await response.json();
+        ollamaUrl.current = url;
+        break;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    if (!data) throw new Error(`ClearDraft could not reach Ollama at localhost. Keep the Ollama app open, then refresh this page. ${lastError instanceof Error ? lastError.message : ""}`.trim());
     const available = data.models?.some((item) => (item.name || item.model || "").startsWith("qwen3:4b"));
     if (!available) throw new Error("Ollama is running, but qwen3:4b is not installed.");
     setModelState("ready");
@@ -153,7 +165,7 @@ export default function Home() {
     const retryInstruction = retry
       ? "\n\nThe previous attempt was invalid because it returned planning, commentary, or unchanged text. Return a clean revision now. Make meaningful structural edits while preserving every fact and protected marker. Change sentence openings, combine or split sentences where helpful, and remove repetition. Do not use synonym spinning."
       : "";
-    const response = await fetch(`${OLLAMA_URL}/api/chat`, {
+    const response = await fetch(`${ollamaUrl.current}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
