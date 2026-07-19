@@ -214,36 +214,39 @@ export default function Home() {
       </header>
 
       <section className="workspace" aria-label="Writing workspace">
-        <div className="control-rail">
-          <fieldset className="control-group"><legend>Mode</legend><div className="segmented">
-            {(["academic", "clinical"] as WritingMode[]).map((option) => <button className={mode === option ? "active" : ""} key={option} onClick={() => setMode(option)} type="button">{option[0].toUpperCase() + option.slice(1)}</button>)}
-          </div></fieldset>
-          <fieldset className="control-group"><legend>Rewrite strength</legend><div className="segmented">
-            {(["light", "moderate", "strong"] as Strength[]).map((option) => <button className={strength === option ? "active" : ""} key={option} onClick={() => setStrength(option)} type="button">{option[0].toUpperCase() + option.slice(1)}</button>)}
-          </div></fieldset>
-          <form className="term-form" onSubmit={handleTermSubmit}><label htmlFor="protected-term">Protected terms</label><div className="term-entry">
-            <input id="protected-term" onChange={(event) => setTermInput(event.target.value)} onKeyDown={handleTermKeyDown} placeholder="Names, diagnoses, citations" value={termInput} />
-            <button type="submit" aria-label="Add protected term">Add</button>
-          </div></form>
-          <div className="trust-copy"><span className="shield small" aria-hidden="true">✓</span><span>Facts, citations, and clinical terms stay protected.</span></div>
-          <button className="primary-action" disabled={!draft.trim() || modelState === "loading" || modelState === "working"} onClick={refineDraft} type="button">
-            {modelState === "loading" ? `Loading ${progress}%` : modelState === "working" ? "Refining…" : "Refine locally"}
-          </button>
-        </div>
-
-        {protectedTerms.length > 0 && <div className="term-chips" aria-label="Protected terms"><span className="chip-label">Protected:</span>{protectedTerms.map((term) => <button className="term-chip" key={term} onClick={() => setProtectedTerms((current) => current.filter((item) => item !== term))} title={`Remove ${term}`} type="button">{term}<span aria-hidden="true"> ×</span></button>)}</div>}
-
         <div className={`model-strip ${modelState}`} role="status" aria-live="polite"><span className="status-dot" aria-hidden="true" /><span>{statusMessage}</span>
           {modelState === "idle" && <span className="model-note">First use downloads about 400 MB, then caches it in this browser.</span>}
           {modelState === "loading" && <div className="progress-track" aria-label={`Model download ${progress}%`}><span style={{ width: `${progress}%` }} /></div>}
         </div>
 
         <div className="editor-grid">
-          <article className="editor-card">
+          <article className="editor-card input-card">
             <header className="editor-header"><div><p className="card-kicker">Your words</p><h2>Original Draft</h2></div><span className="word-count">{draftWords} words</span></header>
             <div className="editor-tools"><span>{mode === "academic" ? "Academic voice" : "Clinical voice"}</span><button onClick={() => setDraft(SAMPLE_DRAFT)} type="button">Try sample</button></div>
             <textarea aria-label="Original draft" onChange={(event) => { setDraft(event.target.value); setRevision(""); setWarning(""); }} placeholder="Paste your draft here. Your text remains on this device while the local model revises it." spellCheck value={draft} />
             <footer className="editor-footer"><span>{draftWords} words</span><button disabled={!draft} onClick={() => setDraft("")} type="button">Clear</button></footer>
+
+            <section className="options-panel" aria-label="Rewrite options">
+              <div className="options-heading"><div><p className="card-kicker">Rewrite settings</p><h3>Choose how the draft should sound</h3></div><span>Processed privately on your device</span></div>
+              <div className="options-grid">
+                <fieldset className="control-group"><legend>Writing mode</legend><div className="segmented">
+                  {(["academic", "clinical"] as WritingMode[]).map((option) => <button className={mode === option ? "active" : ""} key={option} onClick={() => setMode(option)} type="button">{option[0].toUpperCase() + option.slice(1)}</button>)}
+                </div></fieldset>
+                <fieldset className="control-group"><legend>Rewrite strength</legend><div className="segmented">
+                  {(["light", "moderate", "strong"] as Strength[]).map((option) => <button className={strength === option ? "active" : ""} key={option} onClick={() => setStrength(option)} type="button">{option[0].toUpperCase() + option.slice(1)}</button>)}
+                </div></fieldset>
+              </div>
+              <form className="term-form" onSubmit={handleTermSubmit}><label htmlFor="protected-term">Protected terms</label><div className="term-entry">
+                <input id="protected-term" onChange={(event) => setTermInput(event.target.value)} onKeyDown={handleTermKeyDown} placeholder="Names, diagnoses, medications, or citations" value={termInput} />
+                <button type="submit" aria-label="Add protected term">Add</button>
+              </div></form>
+              {protectedTerms.length > 0 && <div className="term-chips" aria-label="Protected terms"><span className="chip-label">Protected:</span>{protectedTerms.map((term) => <button className="term-chip" key={term} onClick={() => setProtectedTerms((current) => current.filter((item) => item !== term))} title={`Remove ${term}`} type="button">{term}<span aria-hidden="true"> ×</span></button>)}</div>}
+              <div className="rewrite-row"><div className="trust-copy"><span className="shield small" aria-hidden="true">✓</span><span>Facts, citations, and clinical terms stay protected.</span></div>
+                <button className="primary-action" disabled={!draft.trim() || modelState === "loading" || modelState === "working"} onClick={refineDraft} type="button">
+                  {modelState === "loading" ? `Loading model ${progress}%` : modelState === "working" ? "Rewriting…" : "Rewrite Draft"}
+                </button>
+              </div>
+            </section>
           </article>
 
           <article className="editor-card">
