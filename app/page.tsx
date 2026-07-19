@@ -7,7 +7,7 @@ type WritingMode = "academic" | "clinical";
 type Strength = "light" | "moderate" | "strong";
 type ModelState = "idle" | "loading" | "ready" | "working" | "error";
 
-const MODEL_ID = "Qwen2.5-1.5B-Instruct-q4f16_1-MLC";
+const MODEL_ID = "Qwen2.5-0.5B-Instruct-q4f16_1-MLC";
 const SAMPLE_DRAFT = `During the hospice visit, the nurse assessed the patient’s comfort and explained each action before beginning care. The caregiver expressed concern about the patient becoming sleepy after receiving morphine. The nurse listened to the concern, reviewed the medication instructions, and used teach-back to confirm understanding. In my future practice, I will assess the caregiver’s specific concerns before providing clear medication education.`;
 const CLINICAL_TERMS = ["morphine", "teach-back", "hospice", "patient", "caregiver"];
 
@@ -234,7 +234,7 @@ export default function Home() {
         {protectedTerms.length > 0 && <div className="term-chips" aria-label="Protected terms"><span className="chip-label">Protected:</span>{protectedTerms.map((term) => <button className="term-chip" key={term} onClick={() => setProtectedTerms((current) => current.filter((item) => item !== term))} title={`Remove ${term}`} type="button">{term}<span aria-hidden="true"> ×</span></button>)}</div>}
 
         <div className={`model-strip ${modelState}`} role="status" aria-live="polite"><span className="status-dot" aria-hidden="true" /><span>{statusMessage}</span>
-          {modelState === "idle" && <span className="model-note">First use downloads about 1 GB, then caches it in this browser.</span>}
+          {modelState === "idle" && <span className="model-note">First use downloads about 400 MB, then caches it in this browser.</span>}
           {modelState === "loading" && <div className="progress-track" aria-label={`Model download ${progress}%`}><span style={{ width: `${progress}%` }} /></div>}
         </div>
 
