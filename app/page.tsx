@@ -151,7 +151,7 @@ export default function Home() {
 
   async function requestOllama(maskedDraft: string, retry = false) {
     const retryInstruction = retry
-      ? "\n\nThe previous attempt was too similar to the source. Make meaningful structural edits while preserving every fact and protected marker. Change sentence openings, combine or split sentences where helpful, and remove repetition. Do not use synonym spinning."
+      ? "\n\nThe previous attempt was invalid because it returned planning, commentary, or unchanged text. Return a clean revision now. Make meaningful structural edits while preserving every fact and protected marker. Change sentence openings, combine or split sentences where helpful, and remove repetition. Do not use synonym spinning."
       : "";
     const response = await fetch(`${OLLAMA_URL}/api/chat`, {
       method: "POST",
@@ -159,22 +159,23 @@ export default function Home() {
       body: JSON.stringify({
         model: MODEL_ID,
         messages: [
-          { role: "system", content: buildSystemPrompt(mode, strength) + retryInstruction },
-          { role: "user", content: maskedDraft },
+          { role: "system", content: "OUTPUT RULE: Return only the revised draft. Never show analysis, reasoning, planning, notes, headings, or explanations.\n\n" + buildSystemPrompt(mode, strength) + retryInstruction },
+          { role: "user", content: `/no_think\n\nRewrite the draft below. Output only the revised draft:\n\n${maskedDraft}` },
         ],
         stream: false,
         think: false,
         options: {
-          temperature: strength === "light" ? 0.2 : strength === "moderate" ? 0.45 : 0.65,
+          temperature: retry ? 0.2 : strength === "light" ? 0.2 : strength === "moderate" ? 0.4 : 0.55,
           top_p: 0.9,
           repeat_penalty: 1.08,
-          num_predict: Math.min(2600, Math.max(320, Math.ceil(draftWords * 2.1))),
+          num_predict: Math.min(3000, Math.max(700, Math.ceil(draftWords * 2.2))),
         },
       }),
     });
     if (!response.ok) throw new Error(`Ollama returned an error (${response.status}).`);
     const result = await response.json() as { message?: { content?: string } };
-    const content = result.message?.content?.trim();
+    const raw = result.message?.content?.trim() || "";
+    const content = raw.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
     if (!content) throw new Error("Ollama returned an empty revision.");
     return content;
   }
@@ -190,10 +191,12 @@ export default function Home() {
       const { masked, preserved } = protectDraft(draft, [...protectedTerms, ...(mode === "clinical" ? CLINICAL_TERMS : [])]);
       let content = await requestOllama(masked);
       const normalize = (value: string) => value.toLowerCase().replace(/\s+/g, " ").trim();
-      if (normalize(content) === normalize(masked) && strength !== "light") {
-        setStatusMessage("Retrying with stronger structural changes");
+      const containsPlanning = (value: string) => /(?:okay,? the user|the user wants|looking at (?:their|the) requirements|let me (?:structure|rewrite|think)|important safety check|why this works|other natural options|here(?:'|’)s a .*rewrite|done thinking)/i.test(value);
+      if ((normalize(content) === normalize(masked) && strength !== "light") || containsPlanning(content)) {
+        setStatusMessage("Retrying without Qwen's planning text");
         content = await requestOllama(masked, true);
       }
+      if (containsPlanning(content)) throw new Error("Qwen returned planning instead of a revision. Please try once more.");
       const { restored, missing } = restoreProtected(content, preserved);
       setRevision(restored);
       setWarning(missing.length ? `Review needed: the model may have changed ${missing.length} protected item${missing.length === 1 ? "" : "s"}. Compare the highlighted revision before using it.` : "Protection check passed. Review the revision for meaning before submitting it.");
